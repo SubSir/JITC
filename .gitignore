@@ -1,0 +1,4 @@
+*.ll
+__pycache__/
+.antlr/
+*.txt
