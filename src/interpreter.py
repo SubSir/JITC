@@ -62,7 +62,8 @@ class Mylistener(llvmListener):
             # 调用 getTextWithSpaces 获取带空格的文本
             text = self.getTextWithSpaces(ctx)
             asm_code = asm.main(text)
-            print(asm_code)
+            with open("test.s", "w") as f:
+                f.write(asm_code)
 
 
 def main(code: str):
