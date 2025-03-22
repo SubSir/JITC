@@ -1,4 +1,6 @@
-*.ll
 __pycache__/
 .antlr/
 *.txt
+*.s
+*.hex
+*.o

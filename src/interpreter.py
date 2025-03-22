@@ -58,12 +58,12 @@ class Mylistener(llvmListener):
 
     def exeFunc(self, ctx: llvmParser.FunctionContext):
         func_name = ctx.Global_var().getText()
-        if len(self.func_map[func_name]) == 0:
-            # 调用 getTextWithSpaces 获取带空格的文本
-            text = self.getTextWithSpaces(ctx)
-            asm_code = asm.main(text)
-            with open("test.s", "w") as f:
-                f.write(asm_code)
+        # if len(self.func_map[func_name]) == 0:
+        # 调用 getTextWithSpaces 获取带空格的文本
+        text = self.getTextWithSpaces(ctx)
+        asm_code = asm.main(text)
+        with open("test.s", "w") as f:
+            f.write(asm_code)
 
 
 def main(code: str):
