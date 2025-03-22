@@ -18,7 +18,20 @@ exec_mem.write(machine_code)
 
 # 将内存指针转换为可调用的函数
 # 假设函数签名是 int func(int a)
-func_type = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint64, ctypes.c_int, ctypes.c_int)
+# 假设我们在运行时得到了参数类型
+def create_func_type(return_type, param_types):
+    """
+    动态生成 CFUNCTYPE
+    :param return_type: 返回值类型 (如 ctypes.c_int)
+    :param param_types: 参数类型列表 (如 [ctypes.c_uint64, ctypes.c_int])
+    :return: CFUNCTYPE 对象
+    """
+    return ctypes.CFUNCTYPE(return_type, *param_types)
+
+# 示例：动态创建 CFUNCTYPE
+param_types = [ctypes.c_uint64, ctypes.c_int, ctypes.c_int]  # 参数类型
+return_type = ctypes.c_int  # 返回类型
+func_type = create_func_type(return_type, param_types)
 func_ptr = ctypes.cast(ctypes.addressof(ctypes.c_int.from_buffer(exec_mem)), func_type)
 
 mem_address = ctypes.addressof(ctypes.c_uint64.from_buffer(exec_mem))

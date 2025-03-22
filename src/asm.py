@@ -50,6 +50,7 @@ class Block:
 
 
 class Mylistener3(llvmListener):
+    func_list = []
     return_str = ".text\n"
     enter_label = ""
     enter_function = ""
@@ -110,13 +111,13 @@ class Mylistener3(llvmListener):
             value = ctx.value()
             name = ctx.value().getText()
             if value.Privatevariable() != None:
-                self.loadword(self.variable_map[name], "a0")
+                self.loadword(self.variable_map[name], "_")
             elif value.Global_var() != None:
-                self.return_str += "\tla a0, " + name[1:] + "\n"
+                self.return_str += "\tla _, " + name[1:] + "\n"
             else:
                 if name == "null":
                     name = "0"
-                self.return_str += "\tli a0, " + name + "\n"
+                self.return_str += "\tli _, " + name + "\n"
         self.return_str += "\tld ra, 0(sp)\n"
         for i in self.tmp_store:
             self.loadword(self.tmp_store[i], i)
@@ -155,7 +156,7 @@ class Mylistener3(llvmListener):
         params = code.parameter()
         mv_list = []
         add_str = ""
-        for i in range(min(len(params), 8)):
+        for i in range(min(len(params), 7)):
             param = params[i]
             if param.Global_var() != None:
                 name = param.Global_var().getText()[1:]
@@ -208,10 +209,10 @@ class Mylistener3(llvmListener):
             for i in dele:
                 mv_list.remove(i)
         self.return_str += add_str
-        if len(params) > 8:
-            self.return_str += "\taddi sp, sp, -" + str((len(params) - 8) * 8) + "\n"
-            for i in range(len(params) - 8):
-                param = params[i + 8]
+        if len(params) > 7:
+            self.return_str += "\taddi sp, sp, -" + str((len(params) - 7) * 8) + "\n"
+            for i in range(len(params) - 7):
+                param = params[i + 7]
                 if param.Global_var() != None:
                     name = param.Global_var().getText()[1:]
                     if name[0] == ".":
@@ -241,8 +242,8 @@ class Mylistener3(llvmListener):
             self.params_decode(ctx.params())
             i = len(ctx.params().parameter())
         self.return_str += "\tcall " + ctx.Global_var().getText()[1:] + "\n"
-        if i > 8:
-            self.return_str += "\taddi sp, sp, " + str((i - 8) * 8) + "\n"
+        if i > 7:
+            self.return_str += "\taddi sp, sp, " + str((i - 7) * 8) + "\n"
         if ctx.Privatevariable() != None:
             self.saveword(self.variable_map[ctx.Privatevariable().getText()], "a0")
 
@@ -890,6 +891,11 @@ class Mylistener3(llvmListener):
         return False
 
     def enterFunction(self, ctx: llvmParser.FunctionContext):
+        return_type = ctx.type_().getText()
+        params = []
+        for parameter in ctx.params().parameter():
+            params.append(parameter.type_().getText())
+        self.func_list.append((return_type, params))
         list = []
         visited = []
         define_map = {}
@@ -1124,8 +1130,8 @@ class Mylistener3(llvmListener):
         self.tmp_store = tmp_store
         extra_param_list = []
         if ctx.params() is not None:
-            if len(ctx.params().parameter()) > 8:
-                params = ctx.params().parameter()[8:]
+            if len(ctx.params().parameter()) > 7:
+                params = ctx.params().parameter()[7:]
                 for i in params:
                     if i.Privatevariable() is not None:
                         self.variable_map[i.Privatevariable().getText()] = -1
@@ -1148,7 +1154,7 @@ class Mylistener3(llvmListener):
         if ctx.params() is not None:
             params = ctx.params().parameter()
             mv_list = []
-            for i in range(min(len(params), 8)):
+            for i in range(min(len(params), 7)):
                 param = params[i]
                 name = param.Privatevariable().getText()
                 index = self.variable_map[name]
@@ -1228,7 +1234,7 @@ class Mylistener3(llvmListener):
         self.data += '\t.asciz "' + str + '"\n'
 
 
-def main(code: str) -> str:
+def main(code: str):
     input_stream = InputStream(code)
     lexer = llvmLexer(input_stream)
     token_stream = CommonTokenStream(lexer)
@@ -1279,7 +1285,7 @@ def main(code: str) -> str:
         )
     # with open("asm_optim.s", "w") as f:
     #     f.write(return_str + listener.data)
-    return return_str + listener.data
+    return (return_str + listener.data, listener.func_list)
 
 
 if __name__ == "__main__":

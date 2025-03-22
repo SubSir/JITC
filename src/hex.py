@@ -259,10 +259,13 @@ def asm_to_hex(asm):
 
     machine_code = process_instructions(expanded_asm, labels)
 
-    return machine_code
+    for line in machine_code.splitlines():
+        for i in range(len(line) - 2, -1, -2):
+            print(f"0x{line[i:i+2]},", end=" ")
+        print()
 
 
-def asm_to_bytearray(asm):
+def asm_to_bytearray(asm: str) -> bytearray:
     labels = record_labels(asm)
 
     expanded_asm = expand_pseudo_instructions(asm, labels)
@@ -273,33 +276,30 @@ def asm_to_bytearray(asm):
 
     for line in machine_code.splitlines():
         for i in range(len(line) - 2, -1, -2):
-            byte_list.append(line[i : i + 2])
-            print(f"0x{line[i : i + 2] },", end=" ")
+            byte_list.append(int(line[i : i + 2], 16))
+    return bytearray(byte_list)
 
 
-asm_code = """
-.text
+if __name__ == "__main__":
+    asm_code = """.text
 .globl add
 add:
-    mv sp, a0
-	mv s4, ra
-    addi sp, sp, -32
-	sd ra, 0(sp)
-	sd s0, 8(sp)
-	sd s1, 16(sp)
-	mv s0, a1
-	mv s1, a2
+        mv sp, a0
+        addi sp, sp, -32
+        sd ra, 0(sp)
+        sd s0, 8(sp)
+        sd s1, 16(sp)
+        mv s0, a1
+        mv s1, a2
 add.ret:
-	add s0, s0, s1
-	mv a0, s0
-	ld ra, 0(sp)
-	mv s5, ra
-	ld s0, 8(sp)
-	ld s1, 16(sp)
-	addi sp, sp, 32
-	ret
+        add s0, s0, s1
+        mv a0, s0
+        ld ra, 0(sp)
+        ld s0, 8(sp)
+        ld s1, 16(sp)
+        addi sp, sp, 32
+        ret
 .data
-"""
+    """
 
-print(asm_to_hex(asm_code))
-asm_to_bytearray(asm_code)
+    asm_to_hex(asm_code)
