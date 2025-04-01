@@ -893,8 +893,9 @@ class Mylistener3(llvmListener):
     def enterFunction(self, ctx: llvmParser.FunctionContext):
         return_type = ctx.type_().getText()
         params = []
-        for parameter in ctx.params().parameter():
-            params.append(parameter.type_().getText())
+        if ctx.params() != None:
+            for parameter in ctx.params().parameter():
+                params.append(parameter.type_().getText())
         self.func_list.append((return_type, params))
         list = []
         visited = []
@@ -1292,5 +1293,5 @@ if __name__ == "__main__":
     code = sys.stdin.read()
     code2 = main(code)
     with open("test.s", "w") as f:
-        f.write(code2)
-    print(code2)
+        f.write(code2[0])
+    print(code2[0])

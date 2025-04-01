@@ -1,7 +1,7 @@
 grammar llvm;
 
 // 程序定义
-module: (function | function_declare |  globalvariable | string_declare | typedelcare)* ;
+module: (function | function_declare |  globalvariable | string_declare | typedelcare | globalarray)* ;
 
 // 类型
 type: 'i32' | 'ptr' | 'void' | 'i1';
@@ -40,6 +40,9 @@ globalvariable: Global_var '=' 'global'type (constant|string_constant) ;
 
 // 字符串声明
 string_declare: Global_var '=' 'global' '['INTEGER 'x' 'i8' ']' 'c' StringLiteral ;
+
+// 全局数组声明
+globalarray: Global_var '=' 'global' '['INTEGER 'x' type ']' 'zeroinitializer' ;
 
 // 参数列表
 params: (parameter (',' parameter)*) ;

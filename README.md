@@ -116,7 +116,7 @@ typedelcare:
 - 格式：
   - 普通变量：`@name = global 类型 常量`
   - 字符串变量：`@name = global [N x i8] c"字符串"`
-  - 不支持数组类型
+  - 静态数组：`@name = global [N x 类型] zeroinitializer`
 
 ```llvm
 globalvariable:
@@ -124,6 +124,9 @@ globalvariable:
 
 string_declare:
   Global_var '=' 'global' '[' INTEGER 'x' 'i8' ']' 'c' StringLiteral
+
+globalarray:
+  Global_var '=' 'global' '[' INTEGER 'x' type ']' 'zeroinitializer'
 ```
 
 **示例**：
@@ -290,6 +293,7 @@ i32, i1
 ### **值和常量**
 - 值可以是变量或常量。
 - 常量包括整数或 `null`。
+- 变量可以是私有变量或全局变量。
 
 ```llvm
 value:
