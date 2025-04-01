@@ -60,6 +60,7 @@ class Mylistener3(llvmListener):
     label_map = {}
     tmp_branch_cnt = 0
     tmp_store = {}
+    size_map = {}
     reg_map = {
         "s0": [],
         "s1": [],
@@ -105,6 +106,10 @@ class Mylistener3(llvmListener):
         "gp",
         "tp",
     ]
+
+    def enterTypedelcare(self, ctx):
+        name = ctx.Privatevariable().getText()
+        self.size_map[name] = len(ctx.types())
 
     def enterRet(self, ctx: llvmParser.RetContext):
         if ctx.value() != None:
@@ -434,7 +439,7 @@ class Mylistener3(llvmListener):
         self.saveword(name2)
 
     def enterGetelementptr(self, ctx: llvmParser.GetelementptrContext):
-        value = ctx.value()
+        value = ctx.value(0)
         if value.Privatevariable() != None:
             name2 = self.variable_map[value.Privatevariable().getText()]
             if isinstance(name2, str):
@@ -442,13 +447,44 @@ class Mylistener3(llvmListener):
             else:
                 t2 = "t2"
                 self.loadword(name2, "t2")
-            self.return_str += "\tslli t2, " + t2 + ", 2\n"
+            self.return_str += "\tslli t2, " + t2 + ", 3\n"
+            if ctx.ptrtype().Privatevariable() != None:
+                self.return_str += (
+                    "\tli t1, "
+                    + str(self.size_map[ctx.ptrtype().Privatevariable().getText()])
+                    + "\n"
+                )
+                self.return_str += "\tmul t2, t2, t1\n"
         else:
             name = value.getText()
             if name == "null":
                 name = "0"
+
             name = str(int(name) * 8)
+            if ctx.ptrtype().Privatevariable() != None:
+                name = str(
+                    int(name)
+                    * str(self.size_map[ctx.ptrtype().Privatevariable().getText()])
+                )
             self.return_str += "\tli t2, " + name + "\n"
+        if len(ctx.value()) > 1:
+            value = ctx.value(1)
+            if value.Privatevariable() != None:
+                name2 = self.variable_map[value.Privatevariable().getText()]
+                if isinstance(name2, str):
+                    t2 = name2
+                else:
+                    t2 = "t1"
+                    self.loadword(name2, "t1")
+                self.return_str += "\tslli t1, " + t2 + ", 3\n"
+            else:
+                name = value.getText()
+                if name == "null":
+                    name = "0"
+
+                name = str(int(name) * 8)
+                self.return_str += "\tli t1, " + name + "\n"
+            self.return_str += "\tadd t2, t2, t1\n"
         var = ctx.var()
         if var.Privatevariable() != None:
             name2 = self.variable_map[var.Privatevariable().getText()]
@@ -1217,10 +1253,6 @@ class Mylistener3(llvmListener):
     def enterGlobalvariable(self, ctx: llvmParser.GlobalvariableContext):
         self.data += ".align 4\n"
         self.data += ctx.Global_var().getText()[1:] + ":\n"
-        if ctx.string_constant() != None:
-            val = ctx.string_constant().getText()[1:]
-            self.data += "\t.word " + val + "\n"
-            return
         val = ctx.constant().getText()
         if val == "null":
             val = "0"

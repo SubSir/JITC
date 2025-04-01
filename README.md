@@ -20,14 +20,14 @@ module:
 
 ### **类型**
 支持以下基本类型：
-- `i32`：32位整数
-- [TODO] `ptr`：指针类型
+- `i64`：32位整数
+- `ptr`：指针类型
 - `void`：空类型（用于无返回值函数）
 - `i1`：布尔类型（1位整数）
 
 ```llvm
 type:
-  i32 | ptr | void | i1
+  i64 | ptr | void | i1
 ```
 
 ---
@@ -69,7 +69,7 @@ function_declare:
 
 **示例**：
 ```llvm
-declare i32 @my_function(i32, i1)
+declare i64 @my_function(i64, i1)
 declare void @print()
 ```
 
@@ -86,10 +86,10 @@ function:
 
 **示例**：
 ```llvm
-define i32 @add(i32 %a, i32 %b) {
+define i64 @add(i64 %a, i64 %b) {
 .entry:
-  %sum = add i32 %a, %b
-  ret i32 %sum
+  %sum = add i64 %a, %b
+  ret i64 %sum
 }
 ```
 
@@ -106,7 +106,7 @@ typedelcare:
 
 **示例**：
 ```llvm
-%my_struct = type { i32, i32 }
+%my_struct = type { i64, i64 }
 ```
 
 ---
@@ -131,7 +131,7 @@ globalarray:
 
 **示例**：
 ```llvm
-@global_int = global i32 42
+@global_int = global i64 42
 @my_string = global [13 x i8] c"Hello, world"
 ```
 
@@ -147,7 +147,7 @@ globalarray:
 
    **示例**：
    ```llvm
-   ret i32 0
+   ret i64 0
    ret void
    ```
 
@@ -160,15 +160,15 @@ globalarray:
    **示例**：
    ```llvm
    call void @print()
-   %result = call i32 @add(i32 %a, i32 %b)
+   %result = call i64 @add(i64 %a, i64 %b)
    ```
 
    此外，还支持内建函数：
    ```llvm
-   call void @print(i32 %val)
-   call void @println(i32 %val)
+   call void @print(i64 %val)
+   call void @println(i64 %val)
    call void @printstr(ptr %str)
-   call i32 @input()
+   call i64 @input()
    ```
 
 3. **二元操作**
@@ -180,7 +180,7 @@ globalarray:
 
    **示例**：
    ```llvm
-   %sum = add i32 %a, %b
+   %sum = add i64 %a, %b
    ```
 
 4. **跳转指令**
@@ -207,19 +207,19 @@ globalarray:
 
    **示例**：
    ```llvm
-   %val = load i32, ptr %ptr
-   store i32 %val, ptr %ptr
+   %val = load i64, ptr %ptr
+   store i64 %val, ptr %ptr
    ```
 
 6. **取指针指令**
    ```llvm
-   Privatevariable '=' getelementptr ptrtype, ptr var, i32 value
-   Privatevariable '=' getelementptr ptrtype, ptr var, i32 INTEGER, i32 value
+   Privatevariable '=' getelementptr ptrtype, ptr var, i64 value
+   Privatevariable '=' getelementptr ptrtype, ptr var, i64 INTEGER, i64 value
    ```
 
    **示例**：
    ```llvm
-   %ptr = getelementptr i32, ptr %array, i32 0, i32 %index
+   %ptr = getelementptr i64, ptr %array, i64 0, i64 %index
    ```
 
 7. **比较指令**
@@ -231,7 +231,7 @@ globalarray:
 
    **示例**：
    ```llvm
-   %cmp = icmp eq i32 %a, %b
+   %cmp = icmp eq i64 %a, %b
    ```
 
 8. **Phi 指令**
@@ -241,7 +241,7 @@ globalarray:
 
    **示例**：
    ```llvm
-   %result = phi i32 [ 0, %entry ], [ %sum, %loop ]
+   %result = phi i64 [ 0, %entry ], [ %sum, %loop ]
    ```
 
 ---
@@ -258,11 +258,11 @@ basic_block:
 **示例**：
 ```llvm
 .entry:
-  %sum = add i32 %a, %b
+  %sum = add i64 %a, %b
   br label %exit
 
 .exit:
-  ret i32 %sum
+  ret i64 %sum
 ```
 
 ---
@@ -284,8 +284,8 @@ types:
 
 **示例**：
 ```llvm
-i32 %a, i32 %b
-i32, i1
+i64 %a, i64 %b
+i64, i1
 ```
 
 ---

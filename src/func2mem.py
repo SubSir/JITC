@@ -14,13 +14,13 @@ class Function:
         self.exec_mem.write(machine_code)
         if return_type == "void":
             return_type = None
-        elif return_type == "i32" or return_type == "i1":
+        elif return_type == "i64" or return_type == "i1":
             return_type = ctypes.c_int
         else:
             raise Exception("Invalid return type: {}", return_type)
 
         param_types = [
-            ctypes.c_int if (param_type == "i32" or param_type == "i1") else None
+            ctypes.c_int if (param_type == "i64" or param_type == "i1") else None
             for param_type in param_types
         ]
         param_types = [ctypes.c_uint64] + param_types
@@ -80,9 +80,9 @@ def main(code: str):
 
 
 if __name__ == "__main__":
-    code = """define i32 @add(i32 %a, i32 %b) {
+    code = """define i64 @add(i64 %a, i64 %b) {
         .ret:
-          %c = add i32 %a, %b 
-          ret i32 %c 
+          %c = add i64 %a, %b 
+          ret i64 %c 
         }"""
     main(code)

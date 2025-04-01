@@ -1,6 +1,7 @@
-@x = global i32 1
-define i32 @main() {
+@x = global i64 -1
+define i64 @main() {
 .ret:
-  call void @println(ptr @x)
-  ret i32 0
+  %x1 = load i64, ptr @x
+  call void @println(i64 %x1)
+  ret i64 0
 }

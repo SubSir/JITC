@@ -7,6 +7,13 @@ from llvmparser.llvmParser import llvmParser
 from llvmparser.llvmVisitor import llvmVisitor
 
 
+def create_shared_memory(size):
+    if sys.platform.startswith("win"):
+        return mmap.mmap(-1, size, access=mmap.ACCESS_WRITE)
+    elif sys.platform.startswith("linux"):
+        return mmap.mmap(-1, size, prot=mmap.PROT_READ | mmap.PROT_WRITE)
+
+
 class Function:
     def __init__(self, name="", variables={}):
         self.name = name
@@ -38,9 +45,9 @@ class LLVMInterpreter(llvmVisitor):
         self.static_functions = {}
         self.strmap = {}
         self.globalvariables = {}
+        self.sizemap = {}
 
     def visitModule(self, ctx):
-        print("Hello, World!")
         main_ = None
         for child in ctx.children:
             if isinstance(child, llvmParser.FunctionContext):
@@ -57,15 +64,23 @@ class LLVMInterpreter(llvmVisitor):
             elif isinstance(child, llvmParser.GlobalarrayContext):
                 name = child.Global_var().getText()
                 size = int(child.INTEGER().getText())
-                mm = mmap.mmap(-1, 16 * size, prot=mmap.PROT_READ | mmap.PROT_WRITE)
+                mm = create_shared_memory(16 * size)
                 self.globalvariables[name] = mm
                 mm.write(b"\x00" * (16 * size))
             elif isinstance(child, llvmParser.GlobalvariableContext):
                 name = child.Global_var().getText()
-                val = int(child.INTEGER().getText())
-                mm = mmap.mmap(-1, 16, prot=mmap.PROT_READ | mmap.PROT_WRITE)
+                val = child.constant().getText()
+                if val == "null":
+                    val = 0
+                else:
+                    val = int(val)
+                mm = create_shared_memory(16)
                 self.globalvariables[name] = mm
                 self.memory_write(mm, val)
+            elif isinstance(child, llvmParser.TypedelcareContext):
+                name = child.Privatevariable().getText()
+                self.sizemap[name] = len(child.types())
+
         if main_:
             self.stack.append(Function("@main"))
             self.visit(main_)
@@ -74,7 +89,7 @@ class LLVMInterpreter(llvmVisitor):
             raise Exception("No main function found")
 
     def memory_write(self, mm, val, addr=0):
-        packed = struct.pack("<i", val)
+        packed = struct.pack("<q", val)
         mm.seek(addr)
         mm.write(packed)
 
@@ -154,8 +169,6 @@ class LLVMInterpreter(llvmVisitor):
     def resolve_value(self, value_ctx):
         if value_ctx.Privatevariable():
             return self.stack[-1].variables[value_ctx.Privatevariable().getText()]
-        elif value_ctx.constant():
-            return int(value_ctx.constant().getText())
         elif value_ctx.Global_var():
             name = value_ctx.Global_var().getText()
             if name in self.globalvariables:
@@ -163,6 +176,8 @@ class LLVMInterpreter(llvmVisitor):
                     ctypes.c_uint64.from_buffer(self.globalvariables[name])
                 )
             return name
+        elif value_ctx.constant():
+            return int(value_ctx.constant().getText())
         raise Exception("Unsupported value type")
 
     def visitCall(self, ctx):
@@ -173,10 +188,10 @@ class LLVMInterpreter(llvmVisitor):
         elif func_name == "@println":
             print(self.resolve_value(ctx.params().parameter(0)))
             return
-        elif func_name == "printstr":
+        elif func_name == "@printstr":
             print(self.strmap[self.resolve_value(ctx.params().parameter(0))], end="")
             return
-        elif func_name == "input":
+        elif func_name == "@input":
             val = input()
             self.stack[-1].variables[ctx.params().parameter(0).getText()] = val
             return
@@ -235,10 +250,13 @@ class LLVMInterpreter(llvmVisitor):
         if value == 1:
             self.stack[-1].jmp_block = ctx.Label().getText()
 
+    def readfrommem(self, ptr):
+        ptr = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_int64))
+        return ptr.contents.value
+
     def visitLoad(self, ctx):
         ptr = self.resolve_value(ctx.var())
-        ptr = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_int64))
-        value = ptr.contents.value
+        value = self.readfrommem(ptr)
         self.stack[-1].variables[ctx.Privatevariable().getText()] = value
 
     def visitStore(self, ctx):
@@ -246,6 +264,18 @@ class LLVMInterpreter(llvmVisitor):
         ptr = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_int64))
         value = self.resolve_value(ctx.value())
         ptr.contents.value = value
+
+    def visitGetelementptr(self, ctx):
+        var = self.resolve_value(ctx.var())
+        offset = 0
+        value1 = self.resolve_value(ctx.value(0))
+        if ctx.ptrtype().Privatevariable():
+            value1 *= self.sizemap[ctx.ptrtype().Privatevariable().getText()]
+        offset += 8 * value1
+        if len(ctx.value()) > 1:
+            value2 = self.resolve_value(ctx.value(1))
+            offset += 8 * value2
+        self.stack[-1].variables[ctx.Privatevariable().getText()] = var + offset
 
 
 def main():

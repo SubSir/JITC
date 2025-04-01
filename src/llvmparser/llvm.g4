@@ -4,7 +4,7 @@ grammar llvm;
 module: (function | function_declare |  globalvariable | string_declare | typedelcare | globalarray)* ;
 
 // 类型
-type: 'i32' | 'ptr' | 'void' | 'i1';
+type: 'i64' | 'ptr' | 'void' | 'i1';
 
 // 整数
 INTEGER: '-'?[0-9]+ ;
@@ -36,7 +36,7 @@ function: 'define' type Global_var '(' params? ')' '{' basic_block+ '}' ;
 typedelcare: Privatevariable '=' 'type' '{' types? '}' ;
 
 // 全局变量声明
-globalvariable: Global_var '=' 'global'type (constant|string_constant) ;
+globalvariable: Global_var '=' 'global'type constant;
 
 // 字符串声明
 string_declare: Global_var '=' 'global' '['INTEGER 'x' 'i8' ']' 'c' StringLiteral ;
@@ -92,8 +92,7 @@ var: (Privatevariable | Global_var);
 store: 'store' type value ',' 'ptr' var ;
 
 // 取指针指令
-getelementptr: Privatevariable '=' 'getelementptr' ptrtype ',' 'ptr' var ',' 'i32' value |
- Privatevariable '=' 'getelementptr' ptrtype ',' 'ptr' var ',' 'i32' INTEGER ',' 'i32' value ;
+getelementptr: Privatevariable '=' 'getelementptr' ptrtype ',' 'ptr' var ',' 'i64' value(',' 'i64' value)?;
 
 ptrtype:type | Privatevariable;
 
@@ -110,5 +109,3 @@ value:Privatevariable | constant | Global_var;
 
 // 常量
 constant: INTEGER |'null';
-
-string_constant: Global_var;

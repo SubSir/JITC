@@ -1,5 +1,5 @@
-define i32 @add(i32 %a, i32 %b) {
+define i64 @add(i64 %a, i64 %b) {
 .ret:
-  %c = add i32 %a, %b 
-  ret i32 %c 
+  %c = add i64 %a, %b 
+  ret i64 %c 
 }
