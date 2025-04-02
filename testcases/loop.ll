@@ -1,35 +1,36 @@
 @x = global [6 x i64] zeroinitializer  
-declare void @println(ptr)  
+declare void @println(i64)  
  
 define i64 @main() {  
-entry:  
-  br label %loop.init   
+.entry:  
+  br label %.loopinit   
  
-loop.init:   
-  %counter = phi i64 [ 0, %entry ], [ %next_counter, %loop.body  ]  
-  %exit.cond  = icmp eq i64 %counter, 6  
-  br i1 %exit.cond,  label %print_loop.init,  label %loop.body   
+.loopinit:   
+  %counter = phi i64 [ 0, %.entry ], [ %next_counter, %.loopbody  ]  
+  %exitcond  = icmp eq i64 %counter, 6  
+  br i1 %exitcond,  label %.print_loopinit,  label %.loopbody   
  
-loop.body:   
-  %element.ptr  = getelementptr [6 x i64], ptr @x, i64 0, i64 %counter  
-  store i64 %counter, ptr %element.ptr   
-  %next_counter = add nuw i64 %counter, 1  
-  br label %loop.init   
+.loopbody:   
+  %elementptr  = getelementptr ptr, ptr @x, i64 0, i64 %counter  
+  store i64 %counter, ptr %elementptr   
+  %next_counter = add i64 %counter, 1  
+  br label %.loopinit   
  
-print_loop.init:   
-  br label %print.loop   
+.print_loopinit:   
+  br label %.printloop   
  
-print.loop:   
-  %print.idx  = phi i64 [ 0, %print_loop.init  ], [ %next.print.idx,  %print.step  ]  
-  %current.ptr  = getelementptr [6 x i64], ptr @x, i64 0, i64 %print.idx   
-  call void @println(ptr %current.ptr)   
-  %next.print.idx  = add nuw i64 %print.idx,  1  
-  %print.exit  = icmp eq i64 %next.print.idx,  6  
-  br i1 %print.exit,  label %exit, label %print.step   
+.printloop:   
+  %printidx  = phi i64 [ 0, %.print_loopinit  ], [ %nextprintidx,  %.printstep  ]  
+  %currentptr  = getelementptr ptr, ptr @x, i64 0, i64 %printidx   
+  %current  = load i64, ptr %currentptr
+  call void @println(i64 %current)   
+  %nextprintidx  = add i64 %printidx,  1  
+  %printexit  = icmp eq i64 %nextprintidx,  6  
+  br i1 %printexit,  label %.exit, label %.printstep   
  
-print.step:   
-  br label %print.loop   
+.printstep:   
+  br label %.printloop   
  
-exit:  
+.exit:  
   ret i64 0  
 }  

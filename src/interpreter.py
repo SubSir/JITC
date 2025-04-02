@@ -19,6 +19,7 @@ class Function:
         self.name = name
         self.variables = variables
         self.jmp_block = None
+        self.last_block = None
         self.return_value = None
 
 
@@ -122,11 +123,10 @@ class LLVMInterpreter(llvmVisitor):
             if not next_block:
                 return
             next_block = self.static_functions[func_name].basic_blocks[next_block]
+        self.stack[-1].last_block = ctx.Label().getText()
         self.visit(next_block)
 
     def visitBinary_op(self, ctx):
-        inst = ctx.getText()
-        print(inst)
         dest = ctx.Privatevariable().getText()
         op = ctx.bin_op().getText()
         value1 = self.resolve_value(ctx.value(0))
@@ -248,7 +248,9 @@ class LLVMInterpreter(llvmVisitor):
             value = self.resolve_value(ctx.value())
 
         if value == 1:
-            self.stack[-1].jmp_block = ctx.Label().getText()
+            self.stack[-1].jmp_block = ctx.Label(0).getText()
+        else:
+            self.stack[-1].jmp_block = ctx.Label(1).getText()
 
     def readfrommem(self, ptr):
         ptr = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_int64))
@@ -276,6 +278,14 @@ class LLVMInterpreter(llvmVisitor):
             value2 = self.resolve_value(ctx.value(1))
             offset += 8 * value2
         self.stack[-1].variables[ctx.Privatevariable().getText()] = var + offset
+
+    def visitPhi(self, ctx):
+        for i in range(len(ctx.value())):
+            if self.stack[-1].last_block == ctx.Label(i).getText():
+                self.stack[-1].variables[
+                    ctx.Privatevariable().getText()
+                ] = self.resolve_value(ctx.value(i))
+                break
 
 
 def main():
