@@ -6,6 +6,10 @@ from llvmparser.llvmLexer import llvmLexer
 from llvmparser.llvmParser import llvmParser
 from llvmparser.llvmVisitor import llvmVisitor
 
+import func2mem
+
+CALL_TIMES = -1
+
 
 def create_shared_memory(size):
     if sys.platform.startswith("win"):
@@ -47,12 +51,18 @@ class LLVMInterpreter(llvmVisitor):
         self.strmap = {}
         self.globalvariables = {}
         self.sizemap = {}
+        self.count_map = {}
+        self.mem = func2mem.Stack()
+        self.func_call = {}
+        self.func_asmed = set()
+        self.func_asm = {}
 
     def visitModule(self, ctx):
         main_ = None
         for child in ctx.children:
             if isinstance(child, llvmParser.FunctionContext):
                 name = child.Global_var().getText()
+                self.func_call[name] = self.call_record(child)
                 basic_blocks = child.basic_block()
                 self.static_functions[name] = StaticFunction(name, basic_blocks)
                 self.functions[name] = child
@@ -88,6 +98,17 @@ class LLVMInterpreter(llvmVisitor):
             print(f"Main function exited with code {self.stack[-1].return_value}")
         else:
             raise Exception("No main function found")
+
+    def call_record(self, ctx: llvmParser.FunctionContext):
+        func_name = ctx.Global_var().getText()
+        call_set = set()
+        for block in ctx.basic_block():
+            for instr in block.instruction():
+                if instr.call():
+                    name = instr.call().Global_var().getText()
+                    if name != func_name:
+                        call_set.add(name)
+        return call_set
 
     def memory_write(self, mm, val, addr=0):
         packed = struct.pack("<q", val)
@@ -197,6 +218,7 @@ class LLVMInterpreter(llvmVisitor):
             return
 
         args = {}
+        arg_list = []
         if ctx.params() != None:
             i = 0
             for param in ctx.params().parameter():
@@ -210,13 +232,36 @@ class LLVMInterpreter(llvmVisitor):
                 )
                 i += 1
                 args[val_name] = value
-        self.stack.append(Function(func_name, args))
-        self.visit(self.functions[func_name])
+                arg_list.append(value)
+        if func_name in self.func_asmed:
+            val = self.func_asm[func_name].exec(arg_list, self.mem.stack_top)
+        elif (
+            func_name in self.count_map
+            and self.count_map[func_name] > CALL_TIMES
+            and self.func_call[func_name].issubset(self.func_asmed)
+        ):
+            code = self.getTextWithSpaces(self.functions[func_name])
+            global_info = {}
+            for name, value in self.globalvariables.items():
+                global_info[name] = ctypes.addressof(ctypes.c_uint64.from_buffer(value))
+            for name, value in self.func_asm.items():
+                global_info[name[1:]] = value.mem_address
+            func = func2mem.code2func(code, global_info)
+            val = func.exec(arg_list, self.mem.stack_top)
+            self.func_asmed.add(func_name)
+            self.func_asm[func_name] = func
+
+        else:
+            if func_name not in self.count_map:
+                self.count_map[func_name] = 0
+            else:
+                self.count_map[func_name] += 1
+            self.stack.append(Function(func_name, args))
+            self.visit(self.functions[func_name])
+            val = self.stack[-1].return_value
+            self.stack.pop()
         if ctx.Privatevariable():
-            self.stack[-2].variables[ctx.Privatevariable().getText()] = self.stack[
-                -1
-            ].return_value
-        self.stack.pop()
+            self.stack[-1].variables[ctx.Privatevariable().getText()] = val
 
     def visitCompare(self, ctx):
         val = None
@@ -286,6 +331,16 @@ class LLVMInterpreter(llvmVisitor):
                     ctx.Privatevariable().getText()
                 ] = self.resolve_value(ctx.value(i))
                 break
+
+    def getTextWithSpaces(self, ctx):
+        result = []
+        for i in range(ctx.getChildCount()):
+            child = ctx.getChild(i)
+            if child.getChildCount() == 0:
+                result.append(child.getText())
+            else:
+                result.append(self.getTextWithSpaces(child))
+        return " ".join(result)
 
 
 def main():

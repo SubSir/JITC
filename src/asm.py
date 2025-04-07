@@ -168,7 +168,8 @@ class Mylistener3(llvmListener):
                 if name[0] == ".":
                     add_str += "\tla a" + str(i) + ", " + name + "\n"
                 else:
-                    add_str += "\tld a" + str(i) + ", " + name + "\n"
+                    add_str += "\tla a" + str(i) + ", " + name + "\n"
+                    add_str += "\tld a" + str(i) + ", (0)a" + str(i) + "\n"
             elif param.Privatevariable() != None:
                 name = param.Privatevariable().getText()
                 index = self.variable_map[name]
@@ -223,7 +224,8 @@ class Mylistener3(llvmListener):
                     if name[0] == ".":
                         self.return_str += "\tla t0, " + name + "\n"
                     else:
-                        self.return_str += "\tld t0, " + name + "\n"
+                        self.return_str += "\tla t0, " + name + "\n"
+                        self.return_str += "\tld t0, 0(t0)\n"
                     t0 = "t0"
                 elif param.Privatevariable() != None:
                     name = param.Privatevariable().getText()
@@ -250,7 +252,7 @@ class Mylistener3(llvmListener):
         if i > 7:
             self.return_str += "\taddi sp, sp, " + str((i - 7) * 8) + "\n"
         if ctx.Privatevariable() != None:
-            self.saveword(self.variable_map[ctx.Privatevariable().getText()], "a0")
+            self.saveword(self.variable_map[ctx.Privatevariable().getText()], "_")
 
     def enterBinary_op(self, ctx: llvmParser.Binary_opContext):
         value1 = ctx.value(0)
@@ -433,9 +435,11 @@ class Mylistener3(llvmListener):
         name = var.Global_var().getText()[1:]
         name2 = self.variable_map[ctx.Privatevariable().getText()]
         if isinstance(name2, str):
-            self.return_str += "\tld " + name2 + ", " + name + "\n"
+            self.return_str += "\tla t0, " + name + "\n"
+            self.return_str += "\tld " + name2 + ", 0(t0)\n"
             return
-        self.return_str += "\tld t0, " + name + "\n"
+        self.return_str += "\tla t0, " + name + "\n"
+        self.return_str += "\tld t0, 0(t0)\n"
         self.saveword(name2)
 
     def enterGetelementptr(self, ctx: llvmParser.GetelementptrContext):
@@ -501,7 +505,7 @@ class Mylistener3(llvmListener):
                 self.saveword(name2)
             return
         name = var.Global_var().getText()[1:]
-        self.return_str += "\tld t0, " + name + "\n"
+        self.return_str += "\tla t0, " + name + "\n"
         name2 = self.variable_map[ctx.Privatevariable().getText()]
         if isinstance(name2, str):
             self.return_str += "\tadd " + name2 + ", t0, t2\n"
@@ -538,8 +542,8 @@ class Mylistener3(llvmListener):
             self.return_str += "\tsd " + t1 + ", 0(" + t0 + ")\n"
             return
         name = var.Global_var().getText()[1:]
-        self.return_str += "\tlui t0, %hi(" + name + ")\n"
-        self.return_str += "\tsd " + t1 + ", %lo(" + name + ")(t0)\n"
+        self.return_str += "\tla t0, " + name + "\n"
+        self.return_str += "\tsd " + t1 + ", 0(t0)\n"
 
     def enterCompare(self, ctx: llvmParser.CompareContext):
         value1 = ctx.value(0)
@@ -740,10 +744,11 @@ class Mylistener3(llvmListener):
                 if value.Privatevariable() != None:
                     list.append(value.Privatevariable().getText())
             elif i.getelementptr() != None:
-                value = i.getelementptr().value()
+                values = i.getelementptr().value()
                 var = i.getelementptr().var()
-                if value.Privatevariable() != None:
-                    list.append(value.Privatevariable().getText())
+                for value in values:
+                    if value.Privatevariable() != None:
+                        list.append(value.Privatevariable().getText())
                 if var.Privatevariable() != None:
                     list.append(var.Privatevariable().getText())
                 list.append("-" + i.getelementptr().Privatevariable().getText())

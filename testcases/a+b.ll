@@ -6,6 +6,6 @@ define i64 @add(i64 %a, i64 %b) {
  
 define i64 @main() {
 .ret:
-  %a = call i64 @add(i64 1, i64 2)
-  ret i64 %a 
+  %d = call i64 @add(i64 1, i64 2)
+  ret i64 %d 
 }

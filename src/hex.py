@@ -131,9 +131,8 @@ def imm_to_bin(imm, length):
     return f"{imm:0{length}b}"[-length:]
 
 
-def record_labels(asm):
+def record_labels(asm, pc=0):
     labels = {}
-    pc = 0
     lines = asm.splitlines()
     for line in lines:
         line = line.strip()
@@ -146,7 +145,7 @@ def record_labels(asm):
     return labels
 
 
-def expand_pseudo_instructions(asm, labels):
+def expand_pseudo_instructions(asm, labels, pc):
     expanded = []
     lines = asm.splitlines()
     for line in lines:
@@ -170,24 +169,36 @@ def expand_pseudo_instructions(asm, labels):
                 lower = imm - (upper << 12)
                 expanded.append(f"lui {args[0]}, {upper}")
                 expanded.append(f"addi {args[0]}, {args[0]}, {lower}")
+                pc += 4
         elif inst == "la":
-            label = args[1]
-            expanded.append(f"auipc {args[0]}, %hi({label})")
-            expanded.append(f"addi {args[0]}, {args[0]}, %lo({label})")
+            label = "@" + args[1]
+            address = labels[label] - pc
+            top_20 = (address + (1 << 11)) >> 12
+            low_12 = address - (top_20 << 12)
+            expanded.append(f"auipc {args[0]}, {top_20}")
+            expanded.append(f"addi {args[0]}, {args[0]}, {low_12}")
+            pc += 4
         elif inst == "call":
             label = args[0]
-            expanded.append(f"jal ra, {label}")
+            address = labels[label] - pc
+            top_20 = (address + (1 << 11)) >> 12
+            low_12 = address - (top_20 << 12)
+            expanded.append(f"addi a0, sp, 0")
+            expanded.append(f"auipc t0, {top_20}")
+            expanded.append(f"addi t0, t0, {low_12}")
+            expanded.append(f"jalr ra, t0, 0")
+            pc += 12
         elif inst == "ret":
             expanded.append("jalr zero, ra, 0")
         else:
             expanded.append(line)
+        pc += 4
 
     return "\n".join(expanded)
 
 
-def process_instructions(asm, labels):
+def process_instructions(asm, labels, pc=0):
     machine_code = []
-    pc = 0
     lines = asm.splitlines()
     for line in lines:
         line = line.strip()
@@ -265,12 +276,16 @@ def asm_to_hex(asm):
         print()
 
 
-def asm_to_bytearray(asm: str) -> bytearray:
-    labels = record_labels(asm)
+def asm_to_bytearray(asm: str, global_info=None, pc=0) -> bytearray:
+    labels = record_labels(asm, pc)
 
-    expanded_asm = expand_pseudo_instructions(asm, labels)
+    if global_info is not None:
+        for key, value in global_info.items():
+            labels[key] = value
 
-    machine_code = process_instructions(expanded_asm, labels)
+    expanded_asm = expand_pseudo_instructions(asm, labels, pc)
+
+    machine_code = process_instructions(expanded_asm, labels, pc)
 
     byte_list = []
 
