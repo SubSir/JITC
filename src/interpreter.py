@@ -1,4 +1,5 @@
 import sys
+import rename
 import mmap
 import struct, ctypes
 from antlr4 import *
@@ -344,9 +345,8 @@ class LLVMInterpreter(llvmVisitor):
 
 
 def main():
-    input_stream = (
-        FileStream(sys.argv[1]) if len(sys.argv) > 1 else InputStream(sys.stdin.read())
-    )
+    code = sys.stdin.read()
+    input_stream = InputStream(rename.main(code))
 
     lexer = llvmLexer(input_stream)
     stream = CommonTokenStream(lexer)

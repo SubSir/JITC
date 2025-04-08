@@ -4,10 +4,10 @@ define i64 @add(i64 %a, i64 %b) {
   ret i64 %c 
 }
 
-define i64 @ad(i64 %d, i64 %e) {
+define i64 @ad(i64 %a, i64 %b) {
 .ret:
-  %f = call i64 @add(i64 %d, i64 %e)
-  ret i64 %f
+  %c = call i64 @add(i64 %a, i64 %b)
+  ret i64 %c
 }
  
 define i64 @main() {
@@ -17,6 +17,6 @@ define i64 @main() {
   call i64 @ad(i64 1, i64 2)
   call i64 @ad(i64 1, i64 2)
   call i64 @ad(i64 1, i64 2)
-  %h = call i64 @ad(i64 1, i64 2)
-  ret i64 %h 
+  %a = call i64 @ad(i64 1, i64 2)
+  ret i64 %a 
 }
