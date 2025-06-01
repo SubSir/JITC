@@ -6,10 +6,13 @@ from antlr4 import *
 from llvmparser.llvmLexer import llvmLexer
 from llvmparser.llvmParser import llvmParser
 from llvmparser.llvmVisitor import llvmVisitor
+import builtins
 
+import hex
+from trampoline import get_trampoline_address, set_global_callback
 import func2mem
 
-CALL_TIMES = -1
+CALL_TIMES = 2
 
 
 def create_shared_memory(size):
@@ -57,6 +60,13 @@ class LLVMInterpreter(llvmVisitor):
         self.func_call = {}
         self.func_asmed = set()
         self.func_asm = {}
+        set_global_callback(self.function_call)
+        hex.trampoline = get_trampoline_address() - 8
+        hex.function_map["print"] = 0
+        hex.function_map["println"] = 1
+        hex.function_map["printstr"] = 2
+        hex.function_map["input"] = 3
+        self.func_index = ["print", "println", "printstr", "input"]
 
     def visitModule(self, ctx):
         main_ = None
@@ -67,6 +77,8 @@ class LLVMInterpreter(llvmVisitor):
                 basic_blocks = child.basic_block()
                 self.static_functions[name] = StaticFunction(name, basic_blocks)
                 self.functions[name] = child
+                hex.function_map[name[1:]] = len(self.func_index)
+                self.func_index.append(name[1:])
                 if name == "@main":
                     main_ = child
             elif isinstance(child, llvmParser.String_declareContext):
@@ -110,6 +122,62 @@ class LLVMInterpreter(llvmVisitor):
                     if name != func_name:
                         call_set.add(name)
         return call_set
+
+    def function_call(self, func_id, a1, a2, a3, a4, a5, a6, sp):
+        # print("we are here")
+        func_name = "@" + self.func_index[func_id]
+        if func_name == "@print":
+            print(a1, end="")
+            return 0
+        elif func_name == "@println":
+            print(a1)
+            return 0
+        elif func_name == "@printstr":
+            print(self.strmap[a1], end="")
+            return 0
+        elif func_name == "@input":
+            val = input()
+            return int(val)
+        if func_name not in self.count_map:
+            self.count_map[func_name] = 0
+        args = {}
+        arg_list = []
+        for i in range(len(self.functions[func_name].params().parameter())):
+            value = eval(f"a{i+1}")
+            val_name = (
+                self.functions[func_name]
+                .params()
+                .parameter()[i]
+                .Privatevariable()
+                .getText()
+            )
+            args[val_name] = value
+            arg_list.append(value)
+        if func_name in self.func_asmed:
+            val = self.func_asm[func_name].exec(arg_list, sp - 16)
+        elif (
+            func_name in self.count_map
+            and self.count_map[func_name] > CALL_TIMES
+            and "@printstr" not in self.func_call[func_name]
+        ):
+            code = self.getTextWithSpaces(self.functions[func_name])
+            global_info = {}
+            for name, value in self.globalvariables.items():
+                global_info[name] = ctypes.addressof(ctypes.c_uint64.from_buffer(value))
+            for name, value in self.func_asm.items():
+                global_info[name[1:]] = value.mem_address
+            func = func2mem.code2func(code, global_info)
+            val = func.exec(arg_list, sp - 16)
+            self.func_asmed.add(func_name)
+            self.func_asm[func_name] = func
+
+        else:
+            self.count_map[func_name] += 1
+            self.stack.append(Function(func_name, args))
+            self.visit(self.functions[func_name])
+            val = self.stack[-1].return_value
+            self.stack.pop()
+        return int(val)
 
     def memory_write(self, mm, val, addr=0):
         packed = struct.pack("<q", val)
@@ -215,9 +283,11 @@ class LLVMInterpreter(llvmVisitor):
             return
         elif func_name == "@input":
             val = input()
-            self.stack[-1].variables[ctx.params().parameter(0).getText()] = val
+            self.stack[-1].variables[ctx.Privatevariable().getText()] = int(val)
             return
 
+        if func_name not in self.count_map:
+            self.count_map[func_name] = 0
         args = {}
         arg_list = []
         if ctx.params() != None:
@@ -239,7 +309,7 @@ class LLVMInterpreter(llvmVisitor):
         elif (
             func_name in self.count_map
             and self.count_map[func_name] > CALL_TIMES
-            and self.func_call[func_name].issubset(self.func_asmed)
+            and "@printstr" not in self.func_call[func_name]
         ):
             code = self.getTextWithSpaces(self.functions[func_name])
             global_info = {}
@@ -253,10 +323,7 @@ class LLVMInterpreter(llvmVisitor):
             self.func_asm[func_name] = func
 
         else:
-            if func_name not in self.count_map:
-                self.count_map[func_name] = 0
-            else:
-                self.count_map[func_name] += 1
+            self.count_map[func_name] += 1
             self.stack.append(Function(func_name, args))
             self.visit(self.functions[func_name])
             val = self.stack[-1].return_value

@@ -1,3 +1,7 @@
+trampoline = 0
+function_map = {}
+
+
 def encode_r_type(inst, rd, rs1, rs2):
     opcode, funct3, funct7 = instruction_set[inst]
     return f"{funct7}{reg_to_bin(rs2)}{reg_to_bin(rs1)}{funct3}{reg_to_bin(rd)}{opcode}"
@@ -180,14 +184,26 @@ def expand_pseudo_instructions(asm, labels, pc):
             pc += 4
         elif inst == "call":
             label = args[0]
-            address = labels[label] - pc
-            top_20 = (address + (1 << 11)) >> 12
-            low_12 = address - (top_20 << 12)
-            expanded.append(f"addi a0, sp, 0")
-            expanded.append(f"auipc t0, {top_20}")
-            expanded.append(f"addi t0, t0, {low_12}")
-            expanded.append(f"jalr ra, t0, 0")
-            pc += 12
+            if label in labels:
+                address = labels[label] - pc
+                top_20 = (address + (1 << 11)) >> 12
+                low_12 = address - (top_20 << 12)
+                expanded.append(f"addi a0, sp, 0")
+                expanded.append(f"auipc t0, {top_20}")
+                expanded.append(f"addi t0, t0, {low_12}")
+                expanded.append(f"jalr ra, t0, 0")
+                pc += 12
+            else:
+                address = trampoline - pc
+                top_20 = (address + (1 << 11)) >> 12
+                low_12 = address - (top_20 << 12)
+                func = function_map[label]
+                expanded.append(f"addi a0, zero, {func}")
+                expanded.append(f"addi a7, sp, 0")
+                expanded.append(f"auipc t0, {top_20}")
+                expanded.append(f"addi t0, t0, {low_12}")
+                expanded.append(f"jalr ra, t0, 0")
+                pc += 16
         elif inst == "ret":
             expanded.append("jalr zero, ra, 0")
         else:
@@ -268,6 +284,9 @@ def asm_to_hex(asm):
 
     expanded_asm = expand_pseudo_instructions(asm, labels)
 
+    labels = record_labels(expanded_asm)
+
+    expanded_asm = expand_pseudo_instructions(asm, labels)
     machine_code = process_instructions(expanded_asm, labels)
 
     for line in machine_code.splitlines():
@@ -284,6 +303,15 @@ def asm_to_bytearray(asm: str, global_info=None, pc=0) -> bytearray:
             labels[key] = value
 
     expanded_asm = expand_pseudo_instructions(asm, labels, pc)
+
+    labels = record_labels(expanded_asm, pc)
+
+    if global_info is not None:
+        for key, value in global_info.items():
+            labels[key] = value
+
+    expanded_asm = expand_pseudo_instructions(asm, labels, pc)
+    # print(expanded_asm)
 
     machine_code = process_instructions(expanded_asm, labels, pc)
 
